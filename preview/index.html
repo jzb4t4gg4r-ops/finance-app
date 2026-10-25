@@ -1,0 +1,513 @@
+<title>Finanças</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Finanças">
+<meta name="theme-color" content="#f2f4f3">
+<style>
+  /* Layout: uma coluna estilo iOS (lista agrupada), folha inferior para formulários. */
+  :root {
+    --bg: #f2f4f3;
+    --card: #ffffff;
+    --fg: #121815;
+    --muted: #6b7570;
+    --line: #e3e7e5;
+    --accent: #1a9966;
+    --accent-soft: #e3f4ec;
+    --income: #1f8a4c;
+    --expense: #c8372d;
+    --overlay: rgba(10, 16, 13, 0.38);
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b0f0d; --card: #171d1a; --fg: #eef2f0; --muted: #8e9893; --line: #26302b;
+      --accent: #3cc78c; --accent-soft: #163327; --income: #4fd18a; --expense: #ff6b5f;
+      --overlay: rgba(0, 0, 0, 0.55); color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b0f0d; --card: #171d1a; --fg: #eef2f0; --muted: #8e9893; --line: #26302b;
+    --accent: #3cc78c; --accent-soft: #163327; --income: #4fd18a; --expense: #ff6b5f;
+    --overlay: rgba(0, 0, 0, 0.55); color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 16px;
+    -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .app {
+    max-width: 560px; margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 8px 48px;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+
+  .topbar { display: flex; justify-content: space-between; align-items: center; min-height: 44px; }
+  .icon-btn {
+    width: 44px; height: 44px; border: 0; border-radius: 22px; background: transparent;
+    color: var(--accent); display: grid; place-items: center;
+  }
+  .icon-btn:active { background: var(--accent-soft); }
+  .icon-btn svg { width: 24px; height: 24px; }
+  h1 { font-family: var(--font-display); font-size: 34px; font-weight: 700; letter-spacing: 0.01em; margin: -8px 0 0; }
+
+  .group { background: var(--card); border-radius: 12px; overflow: hidden; }
+  .month {
+    display: flex; align-items: center; justify-content: space-between; padding: 6px 4px;
+    border-bottom: 1px solid var(--line);
+  }
+  .month strong { font-size: 17px; font-weight: 600; }
+  .summary { padding: 18px 16px 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .balance { font-family: var(--font-display); font-size: 36px; font-weight: 700; }
+  .balance.negative { color: var(--expense); }
+  .totals { display: flex; justify-content: space-between; width: 100%; font-size: 15px; gap: 12px; flex-wrap: wrap; }
+  .totals .in { color: var(--income); }
+  .totals .out { color: var(--expense); }
+
+  .list { list-style: none; margin: 0; padding: 0; }
+  .row-wrap { position: relative; overflow: hidden; }
+  .row-wrap + .row-wrap .row { border-top: 1px solid var(--line); }
+  .row-delete {
+    position: absolute; inset: 0 0 0 auto; width: 88px; border: 0; background: var(--expense);
+    color: #fff; font-weight: 600;
+  }
+  .row {
+    position: relative; display: flex; align-items: center; gap: 12px; width: 100%;
+    padding: 12px 16px; background: var(--card); border: 0; text-align: left;
+    transition: transform 0.2s ease; touch-action: pan-y;
+  }
+  .row.dragging { transition: none; }
+  .row:active { background: var(--bg); }
+  .cat-icon {
+    width: 34px; height: 34px; border-radius: 9px; background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; flex: none;
+  }
+  .cat-icon svg { width: 18px; height: 18px; }
+  .row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .row-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row-date { font-size: 13px; color: var(--muted); }
+  .row-amount { flex: none; }
+  .row-amount.in { color: var(--income); }
+
+  .empty { padding: 40px 16px; text-align: center; color: var(--muted); display: flex; flex-direction: column; gap: 6px; }
+  .empty strong { color: var(--fg); font-size: 18px; }
+  .hint { font-size: 13px; color: var(--muted); text-align: center; margin: -8px 0 0; }
+
+  /* Folha inferior */
+  .overlay {
+    position: fixed; inset: 0; background: var(--overlay); z-index: 20;
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .sheet {
+    background: var(--bg); width: 100%; max-width: 560px; max-height: 92%;
+    border-radius: 14px 14px 0 0; overflow-y: auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 0 calc(24px + env(safe-area-inset-bottom, 0px));
+    display: flex; flex-direction: column; gap: 20px;
+    animation: up 0.25s ease;
+  }
+  @keyframes up { from { transform: translateY(40px); } }
+  .sheet-bar {
+    position: sticky; top: 0; background: var(--bg); z-index: 1;
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 52px;
+  }
+  .sheet-bar h2 { font-size: 17px; font-weight: 600; margin: 0; }
+  .text-btn { border: 0; background: none; color: var(--accent); padding: 10px 0; font-size: 17px; }
+  .text-btn.end { justify-self: end; font-weight: 600; }
+  .text-btn:disabled { color: var(--muted); opacity: 0.6; }
+
+  .field { display: flex; align-items: center; gap: 12px; padding: 0 16px; min-height: 48px; }
+  .field + .field { border-top: 1px solid var(--line); }
+  .field label { flex: none; min-width: 92px; }
+  .field input, .field select, .field textarea {
+    flex: 1; min-width: 0; border: 0; background: transparent; padding: 12px 0; outline: none; text-align: right;
+  }
+  .field textarea { text-align: left; resize: none; min-height: 72px; }
+  .field input.amount { font-size: 24px; font-weight: 600; text-align: left; }
+  .field input::placeholder, .field textarea::placeholder { color: var(--muted); }
+  .error { font-size: 13px; color: var(--expense); padding: 0 16px 10px; margin-top: -4px; }
+  .section-label { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 -14px 16px; }
+
+  .segmented { display: grid; grid-template-columns: 1fr 1fr; background: var(--line); border-radius: 9px; padding: 2px; }
+  .segmented button { border: 0; background: transparent; border-radius: 7px; padding: 7px; font-size: 15px; font-weight: 500; }
+  .segmented button[aria-pressed="true"] { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+
+  .danger { width: 100%; border: 0; background: var(--card); color: var(--expense); padding: 14px; border-radius: 12px; font-size: 17px; }
+  .plain-btn { width: 100%; border: 0; background: var(--card); color: var(--accent); padding: 14px; border-radius: 12px; font-size: 17px; }
+  .info { padding: 14px 16px; font-size: 14px; color: var(--muted); display: flex; flex-direction: column; gap: 8px; }
+  .info-row { display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; }
+  .info-row span:last-child { color: var(--muted); text-align: right; }
+
+  /* Diálogo de confirmação estilo action sheet */
+  .confirm { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 8px;
+    padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px));
+    padding-block: 0 calc(8px + env(safe-area-inset-bottom, 0px)); animation: up 0.2s ease; }
+  .confirm .box { background: var(--card); border-radius: 14px; overflow: hidden; }
+  .confirm p { margin: 0; padding: 14px 16px; text-align: center; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line); }
+  .confirm button { width: 100%; border: 0; background: var(--card); padding: 16px; font-size: 19px; }
+  .confirm .destructive { color: var(--expense); }
+  .confirm .cancel { color: var(--accent); font-weight: 600; border-radius: 14px; }
+
+  .cover { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: grid; place-items: center; color: var(--muted); }
+  .cover svg { width: 48px; height: 48px; }
+
+  @media (prefers-reduced-motion: reduce) { .sheet, .confirm { animation: none; } .row { transition: none; } }
+</style>
+
+<div class="app" id="app">
+  <div class="topbar">
+    <button class="icon-btn" id="btn-settings" aria-label="Ajustes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+    <button class="icon-btn" id="btn-add" aria-label="Novo lançamento">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </div>
+  <h1>Finanças</h1>
+
+  <section class="group" aria-label="Resumo do mês">
+    <div class="month">
+      <button class="icon-btn" id="btn-prev" aria-label="Mês anterior">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+      <strong id="month-label"></strong>
+      <button class="icon-btn" id="btn-next" aria-label="Próximo mês">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+    <div class="summary">
+      <div class="balance num" id="balance"></div>
+      <div class="totals num">
+        <span class="in" id="total-in"></span>
+        <span class="out" id="total-out"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="group" aria-label="Lançamentos">
+    <ul class="list" id="list"></ul>
+  </section>
+  <p class="hint">Toque para editar. Deslize para a esquerda para excluir.</p>
+</div>
+
+<div id="layer"></div>
+<div class="cover" id="cover" hidden>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><rect x="9" y="11" width="6" height="5" rx="1"/><path d="M10 11V9.5a2 2 0 0 1 4 0V11"/></svg>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Categorias (espelham Category.swift) ----------
+  const ICON = {
+    food: '<path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 0-3 2-3 5s1 4 3 4v9"/>',
+    transport: '<path d="M5 16V11l2-5h10l2 5v5M5 16h14M5 16v2M19 16v2"/><circle cx="8" cy="13.5" r="1"/><circle cx="16" cy="13.5" r="1"/>',
+    housing: '<path d="M4 11l8-7 8 7M6 9.5V20h12V9.5M10 20v-6h4v6"/>',
+    bills: '<path d="M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5"/>',
+    health: '<rect x="4" y="7" width="16" height="13" rx="2"/><path d="M9 7V5h6v2M12 11v5M9.5 13.5h5"/>',
+    education: '<path d="M4 5h6a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H4zM20 5h-6a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h6z"/>',
+    leisure: '<rect x="3" y="8" width="18" height="10" rx="4"/><path d="M8 11v4M6 13h4"/><circle cx="16" cy="12" r=".8"/><circle cx="17.5" cy="14.5" r=".8"/>',
+    shopping: '<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
+    salary: '<rect x="3" y="7" width="18" height="11" rx="2"/><circle cx="12" cy="12.5" r="2.5"/><path d="M6 10v5M18 10v5"/>',
+    other: '<circle cx="12" cy="12" r="9"/><circle cx="8" cy="12" r=".8"/><circle cx="12" cy="12" r=".8"/><circle cx="16" cy="12" r=".8"/>'
+  };
+  const CATEGORIES = [
+    ["food", "Alimentação"], ["transport", "Transporte"], ["housing", "Moradia"], ["bills", "Contas"],
+    ["health", "Saúde"], ["education", "Educação"], ["leisure", "Lazer"], ["shopping", "Compras"],
+    ["salary", "Salário"], ["other", "Outros"]
+  ];
+  const catName = Object.fromEntries(CATEGORIES);
+  const svg = (key) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICON[key] || ICON.other}</svg>`;
+
+  // ---------- Dinheiro (espelha Money.swift) ----------
+  const TITLE_MAX = 80, NOTE_MAX = 500, MAX_CENTS = 100000000000;
+  const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+  const plain = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
+  const fmt = (cents) => currency.format(cents / 100);
+  function parseCents(text) {
+    const t = String(text).trim().replace(/\./g, "").replace(",", ".");
+    if (!/^\d{1,12}(\.\d{0,2})?$/.test(t)) return null;
+    const cents = Math.round(parseFloat(t) * 100);
+    return cents > 0 && cents <= MAX_CENTS ? cents : null;
+  }
+
+  // ---------- Datas ----------
+  const pad = (n) => String(n).padStart(2, "0");
+  const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const monthKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+  const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
+  const dayLabel = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short", timeZone: "UTC" });
+
+  // ---------- Dados de exemplo ----------
+  function mockEntries() {
+    const now = new Date();
+    const d = (monthOffset, day) => {
+      const last = new Date(now.getFullYear(), now.getMonth() + monthOffset + 1, 0).getDate();
+      return iso(new Date(now.getFullYear(), now.getMonth() + monthOffset, Math.min(day, last)));
+    };
+    const rows = [
+      ["Salário", 650000, true, "salary", d(0, 5), ""],
+      ["Aluguel", 180000, false, "housing", d(0, 6), "Apartamento"],
+      ["Supermercado", 43790, false, "food", d(0, 8), ""],
+      ["Conta de luz", 18942, false, "bills", d(0, 10), ""],
+      ["Uber", 2370, false, "transport", d(0, 11), "Volta do trabalho"],
+      ["Farmácia", 6480, false, "health", d(0, 12), ""],
+      ["Cinema", 5600, false, "leisure", d(0, 14), ""],
+      ["Freela de design", 120000, true, "other", d(0, 15), ""],
+      ["Padaria", 1890, false, "food", d(0, 16), ""],
+      ["Salário", 650000, true, "salary", d(-1, 5), ""],
+      ["Aluguel", 180000, false, "housing", d(-1, 6), ""],
+      ["Curso online", 29900, false, "education", d(-1, 9), ""],
+      ["Tênis", 39990, false, "shopping", d(-1, 20), ""],
+      ["Restaurante", 12850, false, "food", d(-1, 22), ""]
+    ];
+    return rows.map(([title, amountCents, isIncome, category, date, note], i) =>
+      ({ id: "m" + i, title, amountCents, isIncome, category, date, note }));
+  }
+
+  // ---------- Armazenamento: só neste navegador, com fallback em memória ----------
+  const STORE_KEY = "financas.preview.v1";
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (Array.isArray(data)) return data.filter(valid);
+      }
+    } catch (_) {}
+    return mockEntries();
+  }
+  function persist() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(entries)); } catch (_) {}
+  }
+  function valid(e) {
+    return e && typeof e.id === "string" && typeof e.title === "string" && Number.isInteger(e.amountCents)
+      && e.amountCents > 0 && e.amountCents <= MAX_CENTS && typeof e.isIncome === "boolean"
+      && /^\d{4}-\d{2}-\d{2}$/.test(e.date) && typeof e.note === "string";
+  }
+
+  let entries = load();
+  let month = new Date(); month.setDate(1);
+
+  // ---------- Renderização ----------
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+  function render() {
+    const label = monthLabel.format(month);
+    $("month-label").textContent = label.charAt(0).toUpperCase() + label.slice(1);
+    const key = monthKey(month);
+    const items = entries.filter((e) => e.date.startsWith(key))
+      .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+
+    let inc = 0, out = 0;
+    for (const e of items) e.isIncome ? (inc += e.amountCents) : (out += e.amountCents);
+    const bal = inc - out;
+    $("balance").textContent = fmt(bal);
+    $("balance").classList.toggle("negative", bal < 0);
+    $("total-in").textContent = "↓ " + fmt(inc);
+    $("total-out").textContent = "↑ " + fmt(out);
+
+    $("list").innerHTML = items.length ? items.map((e) => `
+      <li class="row-wrap">
+        <button class="row-delete" data-del="${esc(e.id)}" tabindex="-1">Excluir</button>
+        <button class="row" data-id="${esc(e.id)}">
+          <span class="cat-icon">${svg(e.category)}</span>
+          <span class="row-text">
+            <span class="row-title">${esc(e.title)}</span>
+            <span class="row-date">${dayLabel.format(new Date(e.date + "T00:00:00Z"))}</span>
+          </span>
+          <span class="row-amount num ${e.isIncome ? "in" : ""}">${fmt(e.isIncome ? e.amountCents : -e.amountCents)}</span>
+        </button>
+      </li>`).join("") : `
+      <li class="empty"><strong>Nenhum lançamento</strong><span>Toque em + para adicionar.</span></li>`;
+  }
+
+  // ---------- Deslizar para excluir ----------
+  let drag = null, openRow = null;
+  const closeOpenRow = () => { if (openRow) { openRow.style.transform = ""; openRow = null; } };
+  $("list").addEventListener("pointerdown", (ev) => {
+    const row = ev.target.closest(".row");
+    if (!row || ev.pointerType === "mouse") return;
+    if (openRow && openRow !== row) closeOpenRow();
+    drag = { row, x: ev.clientX, y: ev.clientY, dx: 0, base: openRow === row ? -88 : 0, active: false };
+  });
+  $("list").addEventListener("pointermove", (ev) => {
+    if (!drag) return;
+    const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+    if (!drag.active) {
+      if (Math.abs(dy) > 10) { drag = null; return; }
+      if (Math.abs(dx) < 10) return;
+      drag.active = true; drag.row.classList.add("dragging");
+    }
+    drag.dx = dx;
+    drag.row.style.transform = `translateX(${Math.min(0, Math.max(-120, drag.base + dx))}px)`;
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    const { row, active, base, dx } = drag;
+    row.classList.remove("dragging");
+    if (active) {
+      row.dataset.swiped = "1";
+      if (base + dx < -44) { row.style.transform = "translateX(-88px)"; openRow = row; }
+      else { row.style.transform = ""; if (openRow === row) openRow = null; }
+    }
+    drag = null;
+  };
+  $("list").addEventListener("pointerup", endDrag);
+  $("list").addEventListener("pointercancel", endDrag);
+
+  $("list").addEventListener("click", (ev) => {
+    const del = ev.target.closest("[data-del]");
+    if (del) { const e = entries.find((x) => x.id === del.dataset.del); if (e) confirmDelete(e); return; }
+    const row = ev.target.closest(".row");
+    if (!row) return;
+    if (row.dataset.swiped) { delete row.dataset.swiped; return; }
+    if (openRow) { closeOpenRow(); return; }
+    const e = entries.find((x) => x.id === row.dataset.id);
+    if (e) openForm(e);
+  });
+
+  // ---------- Camadas (folhas e confirmações) ----------
+  const layer = $("layer");
+  function showLayer(html, onReady) {
+    layer.innerHTML = `<div class="overlay" id="overlay">${html}</div>`;
+    $("overlay").addEventListener("click", (ev) => { if (ev.target.id === "overlay") closeLayer(); });
+    onReady && onReady();
+  }
+  const closeLayer = () => { layer.innerHTML = ""; };
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closeLayer(); });
+
+  function confirmDelete(entry, after) {
+    const host = document.createElement("div");
+    host.className = "overlay"; host.style.zIndex = 30;
+    host.innerHTML = `<div class="confirm" role="alertdialog" aria-label="Confirmar exclusão">
+      <div class="box"><p>Excluir “${esc(entry.title)}”?</p>
+      <button class="destructive" id="c-del">Excluir</button></div>
+      <button class="cancel" id="c-cancel">Cancelar</button></div>`;
+    document.body.appendChild(host);
+    const close = () => host.remove();
+    host.addEventListener("click", (ev) => { if (ev.target === host) close(); });
+    host.querySelector("#c-cancel").onclick = () => { close(); closeOpenRow(); };
+    host.querySelector("#c-del").onclick = () => {
+      entries = entries.filter((x) => x.id !== entry.id);
+      persist(); close(); openRow = null; render();
+      after && after();
+    };
+    host.querySelector("#c-del").focus();
+  }
+
+  // ---------- Formulário (espelha EntryFormView.swift) ----------
+  function openForm(entry) {
+    const isEdit = !!entry;
+    const s = entry ? { ...entry } : { title: "", isIncome: false, category: "food", date: iso(new Date()), note: "" };
+    const amountText = entry ? plain.format(entry.amountCents / 100) : "";
+    showLayer(`
+      <form class="sheet" id="form" role="dialog" aria-label="${isEdit ? "Editar" : "Novo lançamento"}" novalidate>
+        <div class="sheet-bar">
+          <button type="button" class="text-btn" id="f-cancel">Cancelar</button>
+          <h2>${isEdit ? "Editar" : "Novo lançamento"}</h2>
+          <button type="submit" class="text-btn end" id="f-save">Salvar</button>
+        </div>
+        <div class="segmented" role="group" aria-label="Tipo">
+          <button type="button" id="t-out" aria-pressed="${!s.isIncome}">Despesa</button>
+          <button type="button" id="t-in" aria-pressed="${s.isIncome}">Receita</button>
+        </div>
+        <div class="group">
+          <div class="field"><input class="amount num" id="f-amount" inputmode="decimal" autocomplete="off"
+            placeholder="0,00" aria-label="Valor" value="${esc(amountText)}"></div>
+          <div class="error" id="f-error" hidden>Informe um valor maior que zero, com até 2 casas decimais.</div>
+          <div class="field"><input id="f-title" maxlength="${TITLE_MAX}" placeholder="Descrição" aria-label="Descrição"
+            style="text-align:left" value="${esc(s.title)}"></div>
+        </div>
+        <div class="group">
+          <div class="field"><label for="f-cat">Categoria</label>
+            <select id="f-cat">${CATEGORIES.map(([k, n]) => `<option value="${k}" ${k === s.category ? "selected" : ""}>${n}</option>`).join("")}</select></div>
+          <div class="field"><label for="f-date">Data</label><input type="date" id="f-date" value="${esc(s.date)}" required></div>
+        </div>
+        <p class="section-label">Observação</p>
+        <div class="group"><div class="field"><textarea id="f-note" maxlength="${NOTE_MAX}" rows="3" placeholder="Opcional" aria-label="Observação">${esc(s.note)}</textarea></div></div>
+        ${isEdit ? '<button type="button" class="danger" id="f-delete">Excluir lançamento</button>' : ""}
+      </form>`, () => {
+      const amount = $("f-amount"), save = $("f-save"), err = $("f-error");
+      const refresh = () => {
+        const ok = parseCents(amount.value) !== null && /^\d{4}-\d{2}-\d{2}$/.test($("f-date").value);
+        save.disabled = !ok;
+        err.hidden = ok || amount.value.trim() === "";
+      };
+      amount.addEventListener("input", refresh);
+      $("f-date").addEventListener("input", refresh);
+      refresh();
+      $("t-out").onclick = () => { s.isIncome = false; $("t-out").setAttribute("aria-pressed", "true"); $("t-in").setAttribute("aria-pressed", "false"); };
+      $("t-in").onclick = () => { s.isIncome = true; $("t-in").setAttribute("aria-pressed", "true"); $("t-out").setAttribute("aria-pressed", "false"); if ($("f-cat").value === "food") $("f-cat").value = "salary"; };
+      $("f-cancel").onclick = closeLayer;
+      if (isEdit) $("f-delete").onclick = () => confirmDelete(entry, closeLayer);
+      $("form").addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        const cents = parseCents(amount.value);
+        if (cents === null) { refresh(); return; }
+        const category = $("f-cat").value;
+        const title = $("f-title").value.trim().slice(0, TITLE_MAX) || catName[category];
+        const record = {
+          id: isEdit ? entry.id : Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+          title, amountCents: cents, isIncome: s.isIncome, category,
+          date: $("f-date").value, note: $("f-note").value.trim().slice(0, NOTE_MAX)
+        };
+        entries = isEdit ? entries.map((x) => (x.id === record.id ? record : x)) : [...entries, record];
+        persist(); closeLayer();
+        const [y, m] = record.date.split("-").map(Number);
+        month = new Date(y, m - 1, 1);
+        render();
+      });
+      if (!isEdit) amount.focus();
+    });
+  }
+
+  // ---------- Ajustes ----------
+  function openSettings() {
+    showLayer(`
+      <div class="sheet" role="dialog" aria-label="Ajustes">
+        <div class="sheet-bar"><span></span><h2>Ajustes</h2><button class="text-btn end" id="s-ok">OK</button></div>
+        <p class="section-label">Segurança</p>
+        <div class="group">
+          <div class="info-row"><span>Bloquear com Face ID</span><span>Só no app iOS</span></div>
+        </div>
+        <p class="section-label">Prévia</p>
+        <div class="group info">
+          <span>Esta é uma prévia web do app. Os dados ficam só neste navegador e não são criptografados.</span>
+          <span>Use apenas valores de teste. O app iOS guarda os dados criptografados no aparelho.</span>
+        </div>
+        <button class="plain-btn" id="s-reset">Restaurar dados de exemplo</button>
+      </div>`, () => {
+      $("s-ok").onclick = closeLayer;
+      $("s-reset").onclick = () => {
+        entries = mockEntries(); persist();
+        month = new Date(); month.setDate(1);
+        closeLayer(); render();
+      };
+    });
+  }
+
+  // ---------- Navegação ----------
+  $("btn-prev").onclick = () => { month = new Date(month.getFullYear(), month.getMonth() - 1, 1); render(); };
+  $("btn-next").onclick = () => { month = new Date(month.getFullYear(), month.getMonth() + 1, 1); render(); };
+  $("btn-add").onclick = () => openForm(null);
+  $("btn-settings").onclick = openSettings;
+
+  // Capa de privacidade ao sair do app (como no seletor de apps do iOS).
+  document.addEventListener("visibilitychange", () => { $("cover").hidden = document.visibilityState === "visible"; });
+
+  render();
+})();
+</script>

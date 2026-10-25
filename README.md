@@ -63,3 +63,9 @@ Observações:
 - `List` carrega as linhas sob demanda; os totais são calculados em um único laço.
 - Gravações explícitas só ao salvar ou excluir.
 - Release com otimização `-O` e *whole module*.
+
+## Prévia web
+
+`preview/index.html` é uma prévia web das mesmas telas, para ver o app no
+celular sem Xcode. Usa dados de exemplo e salva só no navegador
+(`localStorage`, sem criptografia), então use apenas valores de teste.
