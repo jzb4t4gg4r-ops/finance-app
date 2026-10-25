@@ -17,6 +17,7 @@
     --expense: #c8372d;
     --overlay: rgba(10, 16, 13, 0.38);
     --bar: #1a9966;
+    --seg: #ffffff;
     --bar-dim: #b9e3cf;
     --tabbar: rgba(242, 244, 243, 0.86);
     --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -26,13 +27,14 @@
     :root:not([data-theme="light"]) {
       --bg: #0b0f0d; --card: #171d1a; --fg: #eef2f0; --muted: #8e9893; --line: #26302b;
       --accent: #3cc78c; --accent-soft: #163327; --income: #4fd18a; --expense: #ff6b5f;
-      --overlay: rgba(0, 0, 0, 0.55); --bar: #2aa874; --bar-dim: #24473a; --tabbar: rgba(11, 15, 13, 0.86); color-scheme: dark;
+      --overlay: rgba(0, 0, 0, 0.55); --bar: #2aa874; --seg: #46524c; --bar-dim: #24473a; --tabbar: rgba(11, 15, 13, 0.86); color-scheme: dark;
     }
   }
+  :root[data-theme="light"] { color-scheme: light; }
   :root[data-theme="dark"] {
     --bg: #0b0f0d; --card: #171d1a; --fg: #eef2f0; --muted: #8e9893; --line: #26302b;
     --accent: #3cc78c; --accent-soft: #163327; --income: #4fd18a; --expense: #ff6b5f;
-    --overlay: rgba(0, 0, 0, 0.55); --bar: #2aa874; --bar-dim: #24473a; --tabbar: rgba(11, 15, 13, 0.86); color-scheme: dark;
+    --overlay: rgba(0, 0, 0, 0.55); --bar: #2aa874; --seg: #46524c; --bar-dim: #24473a; --tabbar: rgba(11, 15, 13, 0.86); color-scheme: dark;
   }
 
   * { box-sizing: border-box; }
@@ -141,9 +143,10 @@
   .error { font-size: 13px; color: var(--expense); padding: 0 16px 10px; margin-top: -4px; }
   .section-label { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 -14px 16px; }
 
+  .segmented.three { grid-template-columns: 1fr 1fr 1fr; }
   .segmented { display: grid; grid-template-columns: 1fr 1fr; background: var(--line); border-radius: 9px; padding: 2px; }
   .segmented button { border: 0; background: transparent; border-radius: 7px; padding: 7px; font-size: 15px; font-weight: 500; }
-  .segmented button[aria-pressed="true"] { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+  .segmented button[aria-pressed="true"] { background: var(--seg); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
 
   .danger { width: 100%; border: 0; background: var(--card); color: var(--expense); padding: 14px; border-radius: 12px; font-size: 17px; }
   .plain-btn { width: 100%; border: 0; background: var(--card); color: var(--accent); padding: 14px; border-radius: 12px; font-size: 17px; }
@@ -367,6 +370,22 @@
       && e.amountCents > 0 && e.amountCents <= MAX_CENTS && typeof e.isIncome === "boolean"
       && /^\d{4}-\d{2}-\d{2}$/.test(e.date) && typeof e.note === "string";
   }
+
+  // ---------- Aparência: automático (segue o iPhone), claro ou escuro ----------
+  const THEME_KEY = "financas.theme";
+  let themeSetByApp = false;
+  const themeMetas = [...document.querySelectorAll('meta[name="theme-color"]')].map((m) => ({ m, original: m.content }));
+  function applyTheme(theme) {
+    const root = document.documentElement;
+    if (theme === "light" || theme === "dark") { root.dataset.theme = theme; themeSetByApp = true; }
+    else if (themeSetByApp) { delete root.dataset.theme; themeSetByApp = false; }
+    // A barra de status do app instalado acompanha a cor de fundo escolhida.
+    const bg = getComputedStyle(document.body).getPropertyValue("--bg").trim();
+    for (const { m, original } of themeMetas) m.content = theme === "light" || theme === "dark" ? bg : original;
+  }
+  let theme = "auto";
+  try { theme = localStorage.getItem(THEME_KEY) || "auto"; } catch (_) {}
+  applyTheme(theme);
 
   let entries = load();
   let month = new Date(); month.setDate(1);
@@ -669,6 +688,12 @@
     showLayer(`
       <div class="sheet" role="dialog" aria-label="Ajustes">
         <div class="sheet-bar"><span></span><h2>Ajustes</h2><button class="text-btn end" id="s-ok">OK</button></div>
+        <p class="section-label">Aparência</p>
+        <div class="segmented three" role="group" aria-label="Aparência">
+          <button type="button" data-theme-opt="auto" aria-pressed="${theme === "auto"}">Automático</button>
+          <button type="button" data-theme-opt="light" aria-pressed="${theme === "light"}">Claro</button>
+          <button type="button" data-theme-opt="dark" aria-pressed="${theme === "dark"}">Escuro</button>
+        </div>
         <p class="section-label">Segurança</p>
         <div class="group">
           <div class="info-row"><span>Bloquear com Face ID</span><span>Só no app iOS</span></div>
@@ -681,6 +706,14 @@
         <button class="plain-btn" id="s-reset">Restaurar dados de exemplo</button>
       </div>`, () => {
       $("s-ok").onclick = closeLayer;
+      for (const b of document.querySelectorAll("[data-theme-opt]")) {
+        b.onclick = () => {
+          theme = b.dataset.themeOpt;
+          try { localStorage.setItem(THEME_KEY, theme); } catch (_) {}
+          applyTheme(theme);
+          for (const o of document.querySelectorAll("[data-theme-opt]")) o.setAttribute("aria-pressed", String(o === b));
+        };
+      }
       $("s-reset").onclick = () => {
         entries = mockEntries(); persist();
         month = new Date(); month.setDate(1);
