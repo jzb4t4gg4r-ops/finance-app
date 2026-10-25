@@ -16,6 +16,9 @@
     --income: #1f8a4c;
     --expense: #c8372d;
     --overlay: rgba(10, 16, 13, 0.38);
+    --bar: #1a9966;
+    --bar-dim: #b9e3cf;
+    --tabbar: rgba(242, 244, 243, 0.86);
     --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
     --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
   }
@@ -23,13 +26,13 @@
     :root:not([data-theme="light"]) {
       --bg: #0b0f0d; --card: #171d1a; --fg: #eef2f0; --muted: #8e9893; --line: #26302b;
       --accent: #3cc78c; --accent-soft: #163327; --income: #4fd18a; --expense: #ff6b5f;
-      --overlay: rgba(0, 0, 0, 0.55); color-scheme: dark;
+      --overlay: rgba(0, 0, 0, 0.55); --bar: #2aa874; --bar-dim: #24473a; --tabbar: rgba(11, 15, 13, 0.86); color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
     --bg: #0b0f0d; --card: #171d1a; --fg: #eef2f0; --muted: #8e9893; --line: #26302b;
     --accent: #3cc78c; --accent-soft: #163327; --income: #4fd18a; --expense: #ff6b5f;
-    --overlay: rgba(0, 0, 0, 0.55); color-scheme: dark;
+    --overlay: rgba(0, 0, 0, 0.55); --bar: #2aa874; --bar-dim: #24473a; --tabbar: rgba(11, 15, 13, 0.86); color-scheme: dark;
   }
 
   * { box-sizing: border-box; }
@@ -161,6 +164,59 @@
   .cover { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: grid; place-items: center; color: var(--muted); }
   .cover svg { width: 48px; height: 48px; }
 
+  /* Barra de abas inferior (estilo iOS) */
+  .app { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+  .tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 15;
+    display: flex; justify-content: center; gap: 8px;
+    background: var(--tabbar); border-top: 1px solid var(--line);
+    -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 6px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  .tab {
+    flex: 1; max-width: 160px; border: 0; background: none; color: var(--muted);
+    display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px; font-size: 11px; font-weight: 500;
+  }
+  .tab svg { width: 26px; height: 26px; }
+  .tab[aria-selected="true"] { color: var(--accent); }
+
+  .panel { display: flex; flex-direction: column; gap: 20px; }
+
+  /* Análise */
+  .analysis { display: flex; flex-direction: column; gap: 20px; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .tile:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .tile { background: var(--card); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .tile-label { font-size: 13px; color: var(--muted); }
+  .tile-value { font-size: 22px; font-weight: 600; white-space: nowrap; overflow-wrap: anywhere; }
+  .tile-delta { font-size: 13px; color: var(--muted); }
+  .tile-delta.bad { color: var(--expense); }
+  .tile-delta.good { color: var(--income); }
+  .chart-title { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 -12px 16px; font-weight: 400; }
+
+  .cats { list-style: none; margin: 0; padding: 0; }
+  .cat + .cat { border-top: 1px solid var(--line); }
+  .cat-btn { width: 100%; border: 0; background: none; text-align: left; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .cat-head { display: flex; align-items: center; gap: 10px; }
+  .cat-head .cat-icon { width: 28px; height: 28px; border-radius: 7px; }
+  .cat-head .cat-icon svg { width: 16px; height: 16px; }
+  .cat-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cat-pct { color: var(--muted); font-size: 14px; min-width: 44px; text-align: right; }
+  .cat-track { display: block; height: 10px; }
+  .cat-bar { display: block; height: 100%; min-width: 4px; background: var(--bar); border-radius: 0 4px 4px 0; }
+  .cat-detail { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 16px; }
+
+  .cols { padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .cols-plot { display: grid; grid-template-columns: repeat(6, 1fr); align-items: end; height: 140px; border-bottom: 1px solid var(--line); }
+  .col { height: 100%; border: 0; background: none; padding: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+  .col-val { font-size: 11px; color: var(--fg); font-weight: 600; white-space: nowrap; }
+  .col-bar { width: 24px; max-width: 70%; min-height: 2px; background: var(--bar-dim); border-radius: 4px 4px 0 0; }
+  .col[aria-pressed="true"] .col-bar { background: var(--bar); }
+  .cols-axis { display: grid; grid-template-columns: repeat(6, 1fr); text-align: center; font-size: 12px; color: var(--muted); }
+  .cols-axis .on { color: var(--fg); font-weight: 600; }
+
   @media (prefers-reduced-motion: reduce) { .sheet, .confirm { animation: none; } .row { transition: none; } }
 </style>
 
@@ -194,11 +250,26 @@
     </div>
   </section>
 
-  <section class="group" aria-label="Lançamentos">
-    <ul class="list" id="list"></ul>
-  </section>
-  <p class="hint">Toque para editar. Deslize para a esquerda para excluir.</p>
+  <div id="tab-list" class="panel" role="tabpanel" aria-labelledby="tabbtn-list">
+    <section class="group" aria-label="Lançamentos">
+      <ul class="list" id="list"></ul>
+    </section>
+    <p class="hint">Toque para editar. Deslize para a esquerda para excluir.</p>
+  </div>
+
+  <div id="tab-analysis" class="analysis" role="tabpanel" aria-labelledby="tabbtn-analysis" hidden></div>
 </div>
+
+<nav class="tabbar" role="tablist" aria-label="Seções">
+  <button class="tab" id="tabbtn-list" role="tab" aria-selected="true" aria-controls="tab-list" data-tab="list">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>
+    Lançamentos
+  </button>
+  <button class="tab" id="tabbtn-analysis" role="tab" aria-selected="false" aria-controls="tab-analysis" data-tab="analysis">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M7 20v-6M12 20V6M17 20v-9"/></svg>
+    Análise
+  </button>
+</nav>
 
 <div id="layer"></div>
 <div class="cover" id="cover" hidden>
@@ -332,7 +403,126 @@
         </button>
       </li>`).join("") : `
       <li class="empty"><strong>Nenhum lançamento</strong><span>Toque em + para adicionar.</span></li>`;
+
+    if (tab === "analysis") renderAnalysis();
   }
+
+  // ---------- Análise ----------
+  let tab = "list", openCat = null;
+  try { if (localStorage.getItem("financas.tab") === "analysis") tab = "analysis"; } catch (_) {}
+
+  const compact = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact", maximumFractionDigits: 1 });
+  const shortMonth = new Intl.DateTimeFormat("pt-BR", { month: "short" });
+  const COL_MAX_PX = 120;
+
+  // Um único laço por mês: soma e contagem de despesas por categoria.
+  function expensesByCategory(key) {
+    const map = new Map();
+    for (const e of entries) {
+      if (e.isIncome || !e.date.startsWith(key)) continue;
+      const c = map.get(e.category) || { cents: 0, count: 0 };
+      c.cents += e.amountCents; c.count++;
+      map.set(e.category, c);
+    }
+    return map;
+  }
+  const sum = (map) => { let t = 0; for (const v of map.values()) t += v.cents; return t; };
+  const deltaText = (cur, prev) => {
+    if (!prev) return { text: "Sem dados do mês anterior", cls: "" };
+    const pct = Math.round((cur - prev) / prev * 100);
+    if (pct === 0) return { text: "Igual ao mês anterior", cls: "" };
+    return { text: `${pct > 0 ? "↑" : "↓"} ${Math.abs(pct)}% vs. mês anterior`, cls: pct > 0 ? "bad" : "good" };
+  };
+
+  function renderAnalysis() {
+    const key = monthKey(month);
+    const prevKey = monthKey(new Date(month.getFullYear(), month.getMonth() - 1, 1));
+    const cur = expensesByCategory(key), prev = expensesByCategory(prevKey);
+    const total = sum(cur);
+    const totalDelta = deltaText(total, sum(prev));
+
+    const today = new Date();
+    const days = monthKey(today) === key ? today.getDate() : new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+    const cats = [...cur.entries()].sort((a, b) => b[1].cents - a[1].cents);
+    const top = cats[0];
+    const maxCat = top ? top[1].cents : 1;
+    if (openCat && !cur.has(openCat)) openCat = null;
+
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(month.getFullYear(), month.getMonth() - i, 1);
+      months.push({ d, key: monthKey(d), cents: 0 });
+    }
+    const index = Object.fromEntries(months.map((m, i) => [m.key, i]));
+    for (const e of entries) {
+      const i = e.isIncome ? undefined : index[e.date.slice(0, 7)];
+      if (i !== undefined) months[i].cents += e.amountCents;
+    }
+    const colMax = Math.max(1, ...months.map((m) => m.cents));
+
+    const catRows = cats.map(([k, v]) => {
+      const pct = total ? Math.round(v.cents / total * 100) : 0;
+      const d = deltaText(v.cents, prev.get(k)?.cents || 0);
+      const open = openCat === k;
+      return `<li class="cat"><button class="cat-btn" data-cat="${k}" aria-expanded="${open}">
+        <span class="cat-head">
+          <span class="cat-icon">${svg(k)}</span>
+          <span class="cat-name">${esc(catName[k] || k)}</span>
+          <span class="num">${fmt(v.cents)}</span>
+          <span class="cat-pct num">${pct}%</span>
+        </span>
+        <span class="cat-track" aria-hidden="true"><span class="cat-bar" style="width:${(v.cents / maxCat * 100).toFixed(1)}%"></span></span>
+        ${open ? `<span class="cat-detail"><span>${v.count} ${v.count === 1 ? "lançamento" : "lançamentos"}</span><span class="${d.cls ? "tile-delta " + d.cls : ""}">${d.text}</span></span>` : ""}
+      </button></li>`;
+    }).join("");
+
+    $("tab-analysis").innerHTML = `
+      <div class="tiles">
+        <div class="tile"><span class="tile-label">Gasto no mês</span><span class="tile-value">${fmt(total)}</span>
+          <span class="tile-delta ${totalDelta.cls}">${totalDelta.text}</span></div>
+        <div class="tile"><span class="tile-label">Média por dia</span><span class="tile-value">${fmt(Math.round(total / days))}</span>
+          <span class="tile-delta">em ${days} ${days === 1 ? "dia" : "dias"}</span></div>
+        <div class="tile"><span class="tile-label">Maior categoria</span><span class="tile-value">${top ? esc(catName[top[0]]) : "—"}</span>
+          <span class="tile-delta">${top ? fmt(top[1].cents) : "Sem gastos"}</span></div>
+      </div>
+
+      <h2 class="chart-title">Gastos por categoria</h2>
+      <section class="group" aria-label="Gastos por categoria">
+        ${cats.length ? `<ul class="cats">${catRows}</ul>` : `<div class="empty"><strong>Sem gastos neste mês</strong><span>Adicione despesas para ver a análise.</span></div>`}
+      </section>
+
+      <h2 class="chart-title">Gastos nos últimos 6 meses</h2>
+      <section class="group cols" aria-label="Gastos nos últimos 6 meses">
+        <div class="cols-plot">${months.map((m, i) => `
+          <button class="col" data-month="${m.key}" aria-pressed="${i === 5}" aria-label="${monthLabel.format(m.d)}: ${fmt(m.cents)}">
+            ${i === 5 ? `<span class="col-val">${compact.format(m.cents / 100)}</span>` : ""}
+            <span class="col-bar" style="height:${Math.max(2, Math.round(m.cents / colMax * COL_MAX_PX))}px"></span>
+          </button>`).join("")}</div>
+        <div class="cols-axis" aria-hidden="true">${months.map((m, i) => `<span class="${i === 5 ? "on" : ""}">${shortMonth.format(m.d).replace(".", "")}</span>`).join("")}</div>
+      </section>
+      <p class="hint">Toque numa categoria para ver detalhes, ou numa coluna para ir ao mês.</p>`;
+  }
+
+  $("tab-analysis").addEventListener("click", (ev) => {
+    const cat = ev.target.closest("[data-cat]");
+    if (cat) { openCat = openCat === cat.dataset.cat ? null : cat.dataset.cat; renderAnalysis(); return; }
+    const col = ev.target.closest("[data-month]");
+    if (col) {
+      const [y, m] = col.dataset.month.split("-").map(Number);
+      month = new Date(y, m - 1, 1); openCat = null; render();
+    }
+  });
+
+  function setTab(next) {
+    tab = next;
+    try { localStorage.setItem("financas.tab", next); } catch (_) {}
+    for (const b of document.querySelectorAll(".tab")) b.setAttribute("aria-selected", String(b.dataset.tab === next));
+    $("tab-list").hidden = next !== "list";
+    $("tab-analysis").hidden = next !== "analysis";
+    closeOpenRow();
+    render();
+  }
+  for (const b of document.querySelectorAll(".tab")) b.addEventListener("click", () => setTab(b.dataset.tab));
 
   // ---------- Deslizar para excluir ----------
   let drag = null, openRow = null;
@@ -508,6 +698,6 @@
   // Capa de privacidade ao sair do app (como no seletor de apps do iOS).
   document.addEventListener("visibilitychange", () => { $("cover").hidden = document.visibilityState === "visible"; });
 
-  render();
+  setTab(tab);
 })();
 </script>
