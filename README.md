@@ -69,3 +69,18 @@ Observações:
 `preview/index.html` é uma prévia web das mesmas telas, para ver o app no
 celular sem Xcode. Usa dados de exemplo e salva só no navegador
 (`localStorage`, sem criptografia), então use apenas valores de teste.
+
+## PWA (ícone na tela inicial, sem Mac e sem loja)
+
+`pwa/build.py` monta o PWA em `_site/` a partir de `preview/index.html`, com
+manifesto, ícones, service worker (funciona offline) e CSP restritiva
+(sem script inline, sem conexões externas). O workflow
+`.github/workflows/pages.yml` publica no GitHub Pages a cada push.
+
+Para ativar: no GitHub, *Settings › Pages › Source: GitHub Actions*
+(Pages gratuito exige repositório público). Depois, no iPhone, abra o
+endereço no Safari › Compartilhar › Adicionar à Tela de Início.
+
+Os dados ficam só no aparelho (`localStorage`), sem criptografia própria.
+Apps adicionados à Tela de Início não sofrem a limpeza automática de 7 dias
+do Safari, mas apagar o ícone apaga os dados.
