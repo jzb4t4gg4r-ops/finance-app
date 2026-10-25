@@ -48,6 +48,16 @@
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .num { font-variant-numeric: tabular-nums; }
 
+  /* A página não rola: só a área abaixo da barra de status rola.
+     Isso permite esconder a barra de rolagem no iOS e travar o fundo quando uma folha está aberta. */
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  .scroller {
+    position: fixed; top: env(safe-area-inset-top, 0px); left: 0; right: 0; bottom: 0;
+    overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .scroller.locked { overflow: hidden; }
+  .scroller::-webkit-scrollbar, .sheet::-webkit-scrollbar { display: none; }
+
   .app {
     max-width: 560px; margin: 0 auto;
     padding-left: max(16px, env(safe-area-inset-left, 0px));
@@ -113,6 +123,7 @@
     display: flex; align-items: flex-end; justify-content: center;
   }
   .sheet {
+    scrollbar-width: none; overscroll-behavior: contain;
     background: var(--bg); width: 100%; max-width: 560px; max-height: 92%;
     border-radius: 14px 14px 0 0; overflow-y: auto;
     padding-left: max(16px, env(safe-area-inset-left, 0px));
@@ -223,6 +234,7 @@
   @media (prefers-reduced-motion: reduce) { .sheet, .confirm { animation: none; } .row { transition: none; } }
 </style>
 
+<div class="scroller" id="scroller">
 <div class="app" id="app">
   <div class="topbar">
     <button class="icon-btn" id="btn-settings" aria-label="Ajustes">
@@ -261,6 +273,7 @@
   </div>
 
   <div id="tab-analysis" class="analysis" role="tabpanel" aria-labelledby="tabbtn-analysis" hidden></div>
+</div>
 </div>
 
 <nav class="tabbar" role="tablist" aria-label="Seções">
@@ -590,12 +603,16 @@
 
   // ---------- Camadas (folhas e confirmações) ----------
   const layer = $("layer");
+  // Trava a rolagem do fundo enquanto houver folha ou confirmação aberta.
+  const updateLock = () => $("scroller").classList.toggle("locked", !!document.querySelector(".overlay"));
+
   function showLayer(html, onReady) {
     layer.innerHTML = `<div class="overlay" id="overlay">${html}</div>`;
     $("overlay").addEventListener("click", (ev) => { if (ev.target.id === "overlay") closeLayer(); });
+    updateLock();
     onReady && onReady();
   }
-  const closeLayer = () => { layer.innerHTML = ""; };
+  const closeLayer = () => { layer.innerHTML = ""; updateLock(); };
   document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closeLayer(); });
 
   function confirmDelete(entry, after) {
@@ -606,7 +623,8 @@
       <button class="destructive" id="c-del">Excluir</button></div>
       <button class="cancel" id="c-cancel">Cancelar</button></div>`;
     document.body.appendChild(host);
-    const close = () => host.remove();
+    updateLock();
+    const close = () => { host.remove(); updateLock(); };
     host.addEventListener("click", (ev) => { if (ev.target === host) close(); });
     host.querySelector("#c-cancel").onclick = () => { close(); closeOpenRow(); };
     host.querySelector("#c-del").onclick = () => {
